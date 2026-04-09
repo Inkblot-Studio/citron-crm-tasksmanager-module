@@ -4,6 +4,7 @@ import '../index.css'
 import { Toaster, ThemeProvider } from '@citron-systems/citron-ui'
 import { ToastProvider, useToast } from '@/lib/ToastContext'
 import { JiraProvider } from '@/lib/JiraContext'
+import { InternalTasksProvider } from '@/lib/InternalTasksContext'
 import type { JiraConfig } from '@/lib/jira-types'
 import TasksManagerPage from '@/pages/TasksManagerPage'
 import type { TasksManagerPageProps } from '@/pages/TasksManagerPage'
@@ -30,8 +31,10 @@ export default function TasksManager({ initialJiraConfig, ...pageProps }: TasksM
     <ThemeProvider>
       <ToastProvider>
         <JiraProvider initialConfig={initialJiraConfig}>
-          <TasksManagerPage {...pageProps} />
-          <InnerToaster />
+          <InternalTasksProvider>
+            <TasksManagerPage {...pageProps} />
+            <InnerToaster />
+          </InternalTasksProvider>
         </JiraProvider>
       </ToastProvider>
     </ThemeProvider>
