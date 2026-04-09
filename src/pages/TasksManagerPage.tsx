@@ -24,7 +24,7 @@ import {
   LayoutGrid,
   Bot,
 } from 'lucide-react'
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { useToast } from '@/lib/ToastContext'
 import { useJiraTasks } from '@/hooks/useJiraTasks'
 import { useInternalTasks } from '@/lib/InternalTasksContext'
@@ -111,16 +111,18 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
   const jira = useJiraTasks()
   const internal = useInternalTasks()
 
-  const [integration, setIntegration] = useState<Integration>(() => {
-    return (localStorage.getItem('citron-tasks-integration') as Integration) || 'internal'
-  })
-  const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    return (localStorage.getItem('citron-tasks-view') as ViewMode) || 'list'
-  })
+  const [integration, setIntegration] = useState<Integration>(() =>
+    (localStorage.getItem('citron-tasks-integration') as Integration) || 'internal',
+  )
+  const [viewMode, setViewMode] = useState<ViewMode>(() =>
+    (localStorage.getItem('citron-tasks-view') as ViewMode) || 'list',
+  )
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
   const [assistantOpen, setAssistantOpen] = useState(false)
   const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([])
+  const [isProcessing, setIsProcessing] = useState(false)
+  const processingRef = useRef(false)
 
   const setAndPersistIntegration = (v: Integration) => {
     setIntegration(v)
@@ -137,12 +139,13 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
   const activeLoading = integration === 'jira' ? jira.loading : internal.loading
   const activeError = integration === 'jira' ? jira.error : null
 
-  const sections: TaskSection[] = useMemo(() => {
-    return STATUS_COLUMNS.map((s) => {
+  const sections: TaskSection[] = useMemo(() =>
+    STATUS_COLUMNS.map((s) => {
       const filtered = activeTasks.filter((t) => t.status === s.id)
       return { id: s.id, label: s.label, count: filtered.length, tasks: filtered as TaskItemData[] }
-    })
-  }, [activeTasks])
+    }),
+    [activeTasks],
+  )
 
   const selectedTask: TaskItemData | null = useMemo(() => {
     if (!selectedTaskId) return null
@@ -161,7 +164,6 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
       const newStatus = result.destination.droppableId as CuiTaskStatus
       const task = activeTasks.find((t) => t.id === taskId)
       if (!task || task.status === newStatus) return
-
       const updated = activeTasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
       if (integration === 'jira') jira.handleKanbanChange(updated)
       else internal.applyKanbanChange(updated)
@@ -179,16 +181,30 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
 
   const handleAssistantSend = useCallback(
     (payload: { text: string; files: File[] }) => {
-      const userMsg: AssistantMessage = { id: crypto.randomUUID(), role: 'user', content: payload.text }
+      if (processingRef.current) return
+      processingRef.current = true
+      setIsProcessing(true)
+
+      const userMsg: AssistantMessage = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: payload.text,
+      }
       setAssistantMessages((prev) => [...prev, userMsg])
+
+      const taskSnapshot = activeTasks
       setTimeout(() => {
+        const urgent = taskSnapshot.filter((t) => t.priority === 'urgent').length
+        const pending = taskSnapshot.filter((t) => t.status !== 'done').length
         const reply: AssistantMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `You have ${activeTasks.length} tasks. ${activeTasks.filter((t) => t.priority === 'urgent').length} are urgent.`,
+          content: `You have ${taskSnapshot.length} tasks total, ${pending} pending, ${urgent} urgent.`,
         }
         setAssistantMessages((prev) => [...prev, reply])
-      }, 600)
+        setIsProcessing(false)
+        processingRef.current = false
+      }, 500)
     },
     [activeTasks],
   )
@@ -198,33 +214,46 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
     else if (settingsHref) window.location.href = settingsHref
   }
 
+  const headerProps = {
+    integration,
+    onIntegrationChange: setAndPersistIntegration,
+    viewMode,
+    onViewModeChange: setAndPersistView,
+    loading: activeLoading,
+    onRefresh: handleRefresh,
+    onCreate: () => setCreateOpen(true),
+    onToggleAssistant: () => setAssistantOpen((v) => !v),
+    assistantOpen,
+  }
+
   if (integration === 'jira' && (!jira.isConnected || !jira.config)) {
     return (
       <div className="h-full flex flex-col">
-        <Header
-          integration={integration}
-          onIntegrationChange={setAndPersistIntegration}
-          viewMode={viewMode}
-          onViewModeChange={setAndPersistView}
-          loading={false}
-          onRefresh={handleRefresh}
-          onCreate={() => setCreateOpen(true)}
-          onToggleAssistant={() => setAssistantOpen((v) => !v)}
-          pendingCount={0}
-          urgentCount={0}
-        />
-        <div className="flex-1 flex flex-col items-center justify-center px-8">
-          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
-            <CheckSquare className="w-8 h-8 text-accent" />
+        <Header {...headerProps} loading={false} pendingCount={0} urgentCount={0} />
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col items-center justify-center px-8">
+            <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
+              <CheckSquare className="w-8 h-8 text-accent" />
+            </div>
+            <h2 className="text-lg font-semibold text-foreground mb-2">Connect Jira to view tasks</h2>
+            <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
+              Connect your Jira account in Settings to sync and manage your tasks from Jira Cloud.
+            </p>
+            <Button onClick={handleSettingsClick} className="flex items-center gap-2">
+              <Settings className="w-4 h-4" />
+              Go to Settings
+            </Button>
           </div>
-          <h2 className="text-lg font-semibold text-foreground mb-2">Connect Jira to view tasks</h2>
-          <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
-            Connect your Jira account in Settings to sync and manage your tasks from Jira Cloud.
-          </p>
-          <Button onClick={handleSettingsClick} className="flex items-center gap-2">
-            <Settings className="w-4 h-4" />
-            Go to Settings
-          </Button>
+          <AssistantPanel
+            open={assistantOpen}
+            onOpenChange={setAssistantOpen}
+            title="Task Agent"
+            subtitle="Ask anything about your tasks"
+            messages={assistantMessages}
+            onSend={handleAssistantSend}
+            isProcessing={isProcessing}
+            placeholder="Ask about your tasks..."
+          />
         </div>
       </div>
     )
@@ -233,19 +262,20 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
   if (integration === 'slack') {
     return (
       <div className="h-full flex flex-col">
-        <Header
-          integration={integration}
-          onIntegrationChange={setAndPersistIntegration}
-          viewMode={viewMode}
-          onViewModeChange={setAndPersistView}
-          loading={false}
-          onRefresh={handleRefresh}
-          onCreate={() => setCreateOpen(true)}
-          onToggleAssistant={() => setAssistantOpen((v) => !v)}
-          pendingCount={0}
-          urgentCount={0}
-        />
-        <SlackPlaceholder />
+        <Header {...headerProps} loading={false} pendingCount={0} urgentCount={0} />
+        <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1"><SlackPlaceholder /></div>
+          <AssistantPanel
+            open={assistantOpen}
+            onOpenChange={setAssistantOpen}
+            title="Task Agent"
+            subtitle="Ask anything about your tasks"
+            messages={assistantMessages}
+            onSend={handleAssistantSend}
+            isProcessing={isProcessing}
+            placeholder="Ask about your tasks..."
+          />
+        </div>
       </div>
     )
   }
@@ -255,91 +285,85 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
 
   return (
     <div className="h-full flex flex-col">
-      <Header
-        integration={integration}
-        onIntegrationChange={setAndPersistIntegration}
-        viewMode={viewMode}
-        onViewModeChange={setAndPersistView}
-        loading={activeLoading}
-        onRefresh={handleRefresh}
-        onCreate={() => setCreateOpen(true)}
-        onToggleAssistant={() => setAssistantOpen((v) => !v)}
-        pendingCount={pendingCount}
-        urgentCount={urgentCount}
-      />
+      <Header {...headerProps} pendingCount={pendingCount} urgentCount={urgentCount} />
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="flex-1 overflow-y-auto hide-scrollbar px-8 py-6">
-          <div className="max-w-4xl mx-auto">
-            {activeLoading && activeTasks.length === 0 ? (
-              viewMode === 'kanban' ? <KanbanSkeleton /> : <ListSkeleton />
-            ) : activeError ? (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <p className="text-sm text-muted-foreground mb-4">{activeError}</p>
-                <Button variant="secondary" onClick={handleRefresh}>Retry</Button>
-              </div>
-            ) : viewMode === 'kanban' ? (
-              <DragDropContext onDragEnd={handleKanbanDragEnd}>
-                <div className="grid grid-cols-3 gap-4 h-full">
-                  {STATUS_COLUMNS.map((col) => {
-                    const colTasks = activeTasks.filter((t) => t.status === col.id)
-                    return (
-                      <Droppable key={col.id} droppableId={col.id}>
-                        {(provided) => (
-                          <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col min-h-0">
-                            <TaskKanbanColumn columnId={col.id} title={col.label} count={colTasks.length}>
-                              {colTasks.map((task, idx) => (
-                                <div key={task.id} onClick={() => setSelectedTaskId(task.id)} className="cursor-pointer">
-                                  <TaskKanbanCard task={task} index={idx} />
-                                </div>
-                              ))}
-                              {provided.placeholder}
-                            </TaskKanbanColumn>
-                          </div>
-                        )}
-                      </Droppable>
-                    )
-                  })}
+        {/* Main + detail */}
+        <div className="flex-1 flex overflow-hidden min-w-0">
+          <div className="flex-1 overflow-y-auto hide-scrollbar px-8 py-6">
+            <div className="max-w-4xl mx-auto">
+              {activeLoading && activeTasks.length === 0 ? (
+                viewMode === 'kanban' ? <KanbanSkeleton /> : <ListSkeleton />
+              ) : activeError ? (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <p className="text-sm text-muted-foreground mb-4">{activeError}</p>
+                  <Button variant="secondary" onClick={handleRefresh}>Retry</Button>
                 </div>
-              </DragDropContext>
-            ) : (
-              <CuiTaskList
-                sections={sections}
-                onTaskToggle={(id) => {
-                  if (integration === 'internal') internal.moveStatus(id, internal.raw.find((t) => t.id === id)?.status === 'done' ? 'todo' : 'done')
-                }}
-                onTaskClick={(id) => setSelectedTaskId(id)}
-              />
-            )}
-            {activeTasks.length === 0 && !activeLoading && !activeError && (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <p className="text-sm text-muted-foreground">No tasks found</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">
-                  {integration === 'jira' ? 'Create one or check your JQL filter' : 'Create your first task'}
-                </p>
-              </div>
-            )}
+              ) : viewMode === 'kanban' ? (
+                <DragDropContext onDragEnd={handleKanbanDragEnd}>
+                  <div className="grid grid-cols-3 gap-4 h-full">
+                    {STATUS_COLUMNS.map((col) => {
+                      const colTasks = activeTasks.filter((t) => t.status === col.id)
+                      return (
+                        <Droppable key={col.id} droppableId={col.id}>
+                          {(provided) => (
+                            <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col min-h-0">
+                              <TaskKanbanColumn columnId={col.id} title={col.label} count={colTasks.length}>
+                                {colTasks.map((task, idx) => (
+                                  <div key={task.id} onClick={() => setSelectedTaskId(task.id)} className="cursor-pointer">
+                                    <TaskKanbanCard task={task} index={idx} />
+                                  </div>
+                                ))}
+                                {provided.placeholder}
+                              </TaskKanbanColumn>
+                            </div>
+                          )}
+                        </Droppable>
+                      )
+                    })}
+                  </div>
+                </DragDropContext>
+              ) : (
+                <CuiTaskList
+                  sections={sections}
+                  onTaskToggle={(id) => {
+                    if (integration === 'internal') internal.moveStatus(id, internal.raw.find((t) => t.id === id)?.status === 'done' ? 'todo' : 'done')
+                  }}
+                  onTaskClick={(id) => setSelectedTaskId(id)}
+                />
+              )}
+              {activeTasks.length === 0 && !activeLoading && !activeError && (
+                <div className="flex flex-col items-center justify-center py-16 text-center">
+                  <p className="text-sm text-muted-foreground">No tasks found</p>
+                  <p className="text-xs text-muted-foreground/70 mt-1">
+                    {integration === 'jira' ? 'Create one or check your JQL filter' : 'Create your first task'}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
+
+          <TaskDetailsPanel
+            task={selectedTask}
+            open={!!selectedTask}
+            onOpenChange={(open) => { if (!open) setSelectedTaskId(null) }}
+            onStatusChange={handleStatusChange}
+            className="w-[420px] shrink-0 border-l border-border"
+          />
         </div>
 
-        <TaskDetailsPanel
-          task={selectedTask}
-          open={!!selectedTask}
-          onOpenChange={(open) => { if (!open) setSelectedTaskId(null) }}
-          onStatusChange={handleStatusChange}
-          className="w-[420px] shrink-0 border-l border-border"
+        {/* Assistant: inline flex child, pushes layout left */}
+        <AssistantPanel
+          open={assistantOpen}
+          onOpenChange={setAssistantOpen}
+          title="Task Agent"
+          subtitle="Ask anything about your tasks"
+          messages={assistantMessages}
+          onSend={handleAssistantSend}
+          isProcessing={isProcessing}
+          placeholder="Ask about your tasks..."
         />
       </div>
-
-      <AssistantPanel
-        open={assistantOpen}
-        onOpenChange={setAssistantOpen}
-        title="Task Agent"
-        subtitle="Ask anything about your tasks"
-        messages={assistantMessages}
-        onSend={handleAssistantSend}
-        placeholder="Ask about your tasks..."
-      />
 
       {integration === 'internal' && (
         <InternalCreateWithSync
@@ -376,7 +400,6 @@ function InternalCreateWithSync({
   addToast: ReturnType<typeof useToast>['addToast']
 }) {
   const { config: jiraConfig } = useJiraConfig()
-  const hasIntegrations = !!jiraConfig
 
   const handleCreate = async (payload: InternalTaskCreatePayload) => {
     internal.create({
@@ -414,7 +437,7 @@ function InternalCreateWithSync({
       open={open}
       onOpenChange={onOpenChange}
       onCreate={handleCreate}
-      hasActiveIntegrations={hasIntegrations}
+      hasActiveIntegrations={!!jiraConfig}
     />
   )
 }
@@ -430,6 +453,7 @@ interface HeaderProps {
   onRefresh: () => void
   onCreate: () => void
   onToggleAssistant: () => void
+  assistantOpen: boolean
   pendingCount: number
   urgentCount: number
 }
@@ -443,6 +467,7 @@ function Header({
   onRefresh,
   onCreate,
   onToggleAssistant,
+  assistantOpen,
   pendingCount,
   urgentCount,
 }: HeaderProps) {
@@ -492,7 +517,11 @@ function Header({
         <button
           onClick={onToggleAssistant}
           aria-label="Toggle assistant"
-          className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-150 active:scale-95"
+          className={`h-8 w-8 inline-flex items-center justify-center rounded-lg border transition-all duration-150 active:scale-95 ${
+            assistantOpen
+              ? 'border-accent bg-accent/10 text-accent'
+              : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+          }`}
         >
           <Bot className="w-4 h-4" />
         </button>
