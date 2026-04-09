@@ -1,4 +1,4 @@
-import { Button, Input, Label, Select } from '@citron-systems/citron-ui'
+import { Button, Input, Label, Select, Switch } from '@citron-systems/citron-ui'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useState } from 'react'
 import type { TaskPriority } from '@citron-systems/citron-ui'
@@ -10,18 +10,29 @@ const priorityOptions = [
   { value: 'low', label: 'Low' },
 ]
 
+export interface InternalTaskCreatePayload {
+  title: string
+  description?: string
+  priority?: TaskPriority
+  date?: string
+  assignee?: string
+  syncWithIntegrations?: boolean
+}
+
 interface InternalTaskCreateModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onCreate: (payload: { title: string; description?: string; priority?: TaskPriority; date?: string; assignee?: string }) => void
+  onCreate: (payload: InternalTaskCreatePayload) => void
+  hasActiveIntegrations?: boolean
 }
 
-export function InternalTaskCreateModal({ open, onOpenChange, onCreate }: InternalTaskCreateModalProps) {
+export function InternalTaskCreateModal({ open, onOpenChange, onCreate, hasActiveIntegrations = false }: InternalTaskCreateModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [priority, setPriority] = useState<TaskPriority>('medium')
   const [due, setDue] = useState('')
   const [assignee, setAssignee] = useState('')
+  const [syncEnabled, setSyncEnabled] = useState(false)
 
   const handleCreate = () => {
     if (!title.trim()) return
@@ -31,12 +42,14 @@ export function InternalTaskCreateModal({ open, onOpenChange, onCreate }: Intern
       priority,
       date: due || undefined,
       assignee: assignee.trim() || undefined,
+      syncWithIntegrations: syncEnabled,
     })
     setTitle('')
     setDescription('')
     setPriority('medium')
     setDue('')
     setAssignee('')
+    setSyncEnabled(false)
     onOpenChange(false)
   }
 
@@ -75,6 +88,16 @@ export function InternalTaskCreateModal({ open, onOpenChange, onCreate }: Intern
                 <Input type="date" value={due} onChange={(e) => setDue(e.target.value)} />
               </div>
             </div>
+
+            {hasActiveIntegrations && (
+              <div className="flex items-center justify-between pt-2 border-t border-border">
+                <div>
+                  <p className="text-xs font-medium text-foreground">Sync with integrations</p>
+                  <p className="text-[10px] text-muted-foreground">Create in Jira & notify Slack</p>
+                </div>
+                <Switch checked={syncEnabled} onCheckedChange={setSyncEnabled} />
+              </div>
+            )}
           </div>
           <div className="flex gap-2 mt-6 pt-4 border-t border-border">
             <Button variant="secondary" onClick={() => onOpenChange(false)} className="flex-1 text-xs">

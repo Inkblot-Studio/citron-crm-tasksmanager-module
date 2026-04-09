@@ -1,12 +1,20 @@
 import {
   Button,
   Skeleton,
-  TaskKanbanBoard,
   TaskList as CuiTaskList,
   TaskDetailsPanel,
-  ModuleAssistantPanel,
+  AssistantPanel,
+  TaskKanbanColumn,
+  TaskKanbanCard,
 } from '@citron-systems/citron-ui'
-import type { TaskWithStatus, TaskSection, TaskItemData } from '@citron-systems/citron-ui'
+import type {
+  TaskWithStatus,
+  TaskSection,
+  TaskItemData,
+  AssistantMessage,
+  TaskStatus as CuiTaskStatus,
+} from '@citron-systems/citron-ui'
+import { DragDropContext, Droppable, type DropResult } from '@hello-pangea/dnd'
 import {
   CheckSquare,
   Plus,
@@ -14,15 +22,25 @@ import {
   Settings,
   List,
   LayoutGrid,
+  Bot,
 } from 'lucide-react'
 import { useState, useCallback, useMemo } from 'react'
 import { useToast } from '@/lib/ToastContext'
 import { useJiraTasks } from '@/hooks/useJiraTasks'
 import { useInternalTasks } from '@/lib/InternalTasksContext'
+import { useJiraConfig } from '@/lib/JiraContext'
+import { createJiraIssue, fetchJiraProjects } from '@/lib/jira-api'
 import { IntegrationSwitch, type Integration } from '@/components/IntegrationSwitch'
 import { SlackPlaceholder } from '@/components/SlackPlaceholder'
-import { InternalTaskCreateModal } from '@/components/InternalTaskCreateModal'
+import { InternalTaskCreateModal, type InternalTaskCreatePayload } from '@/components/InternalTaskCreateModal'
 import { TaskCreateModal } from '@/components/TaskCreateModal'
+
+const PRIORITY_TO_JIRA: Record<string, string> = {
+  urgent: 'Highest',
+  high: 'High',
+  medium: 'Medium',
+  low: 'Low',
+}
 
 type ViewMode = 'list' | 'kanban'
 
@@ -31,7 +49,7 @@ export interface TasksManagerPageProps {
   onOpenSettings?: () => void
 }
 
-const STATUS_SECTIONS: { id: 'todo' | 'in_progress' | 'done'; label: string }[] = [
+const STATUS_COLUMNS: { id: CuiTaskStatus; label: string }[] = [
   { id: 'todo', label: 'To Do' },
   { id: 'in_progress', label: 'In Progress' },
   { id: 'done', label: 'Done' },
@@ -40,7 +58,7 @@ const STATUS_SECTIONS: { id: 'todo' | 'in_progress' | 'done'; label: string }[] 
 function ListSkeleton() {
   return (
     <div className="space-y-6">
-      {STATUS_SECTIONS.map((g) => (
+      {STATUS_COLUMNS.map((g) => (
         <div key={g.id}>
           <div className="flex items-center gap-2 mb-3">
             <Skeleton className="w-3.5 h-3.5 rounded-full" />
@@ -68,7 +86,7 @@ function ListSkeleton() {
 function KanbanSkeleton() {
   return (
     <div className="grid grid-cols-3 gap-4 h-full">
-      {STATUS_SECTIONS.map((g) => (
+      {STATUS_COLUMNS.map((g) => (
         <div key={g.id} className="flex flex-col">
           <div className="flex items-center gap-2 mb-3 px-1">
             <Skeleton className="w-3.5 h-3.5 rounded-full" />
@@ -101,6 +119,8 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
   })
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null)
+  const [assistantOpen, setAssistantOpen] = useState(false)
+  const [assistantMessages, setAssistantMessages] = useState<AssistantMessage[]>([])
 
   const setAndPersistIntegration = (v: Integration) => {
     setIntegration(v)
@@ -118,14 +138,9 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
   const activeError = integration === 'jira' ? jira.error : null
 
   const sections: TaskSection[] = useMemo(() => {
-    return STATUS_SECTIONS.map((s) => {
+    return STATUS_COLUMNS.map((s) => {
       const filtered = activeTasks.filter((t) => t.status === s.id)
-      return {
-        id: s.id,
-        label: s.label,
-        count: filtered.length,
-        tasks: filtered as TaskItemData[],
-      }
+      return { id: s.id, label: s.label, count: filtered.length, tasks: filtered as TaskItemData[] }
     })
   }, [activeTasks])
 
@@ -139,26 +154,43 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
     else internal.reload()
   }, [integration, jira, internal])
 
-  const handleCreate = useCallback(() => {
-    setCreateOpen(true)
-  }, [])
+  const handleKanbanDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination) return
+      const taskId = result.draggableId
+      const newStatus = result.destination.droppableId as CuiTaskStatus
+      const task = activeTasks.find((t) => t.id === taskId)
+      if (!task || task.status === newStatus) return
 
-  const handleKanbanChange = useCallback(
-    (updated: TaskWithStatus[]) => {
+      const updated = activeTasks.map((t) => (t.id === taskId ? { ...t, status: newStatus } : t))
       if (integration === 'jira') jira.handleKanbanChange(updated)
       else internal.applyKanbanChange(updated)
     },
-    [integration, jira, internal],
+    [activeTasks, integration, jira, internal],
   )
 
   const handleStatusChange = useCallback(
-    (status: 'todo' | 'in_progress' | 'done') => {
+    (status: CuiTaskStatus) => {
       if (!selectedTaskId) return
-      if (integration === 'internal') {
-        internal.moveStatus(selectedTaskId, status)
-      }
+      if (integration === 'internal') internal.moveStatus(selectedTaskId, status)
     },
     [selectedTaskId, integration, internal],
+  )
+
+  const handleAssistantSend = useCallback(
+    (payload: { text: string; files: File[] }) => {
+      const userMsg: AssistantMessage = { id: crypto.randomUUID(), role: 'user', content: payload.text }
+      setAssistantMessages((prev) => [...prev, userMsg])
+      setTimeout(() => {
+        const reply: AssistantMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `You have ${activeTasks.length} tasks. ${activeTasks.filter((t) => t.priority === 'urgent').length} are urgent.`,
+        }
+        setAssistantMessages((prev) => [...prev, reply])
+      }, 600)
+    },
+    [activeTasks],
   )
 
   const handleSettingsClick = () => {
@@ -176,13 +208,14 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
           onViewModeChange={setAndPersistView}
           loading={false}
           onRefresh={handleRefresh}
-          onCreate={handleCreate}
+          onCreate={() => setCreateOpen(true)}
+          onToggleAssistant={() => setAssistantOpen((v) => !v)}
           pendingCount={0}
           urgentCount={0}
         />
         <div className="flex-1 flex flex-col items-center justify-center px-8">
-          <div className="w-16 h-16 rounded-2xl bg-citrus-green/10 flex items-center justify-center mb-4">
-            <CheckSquare className="w-8 h-8 text-citrus-green" />
+          <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4">
+            <CheckSquare className="w-8 h-8 text-accent" />
           </div>
           <h2 className="text-lg font-semibold text-foreground mb-2">Connect Jira to view tasks</h2>
           <p className="text-sm text-muted-foreground text-center max-w-md mb-6">
@@ -207,7 +240,8 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
           onViewModeChange={setAndPersistView}
           loading={false}
           onRefresh={handleRefresh}
-          onCreate={handleCreate}
+          onCreate={() => setCreateOpen(true)}
+          onToggleAssistant={() => setAssistantOpen((v) => !v)}
           pendingCount={0}
           urgentCount={0}
         />
@@ -228,13 +262,13 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
         onViewModeChange={setAndPersistView}
         loading={activeLoading}
         onRefresh={handleRefresh}
-        onCreate={handleCreate}
+        onCreate={() => setCreateOpen(true)}
+        onToggleAssistant={() => setAssistantOpen((v) => !v)}
         pendingCount={pendingCount}
         urgentCount={urgentCount}
       />
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Main content */}
         <div className="flex-1 overflow-y-auto hide-scrollbar px-8 py-6">
           <div className="max-w-4xl mx-auto">
             {activeLoading && activeTasks.length === 0 ? (
@@ -245,7 +279,29 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
                 <Button variant="secondary" onClick={handleRefresh}>Retry</Button>
               </div>
             ) : viewMode === 'kanban' ? (
-              <TaskKanbanBoard tasks={activeTasks} onTasksChange={handleKanbanChange} />
+              <DragDropContext onDragEnd={handleKanbanDragEnd}>
+                <div className="grid grid-cols-3 gap-4 h-full">
+                  {STATUS_COLUMNS.map((col) => {
+                    const colTasks = activeTasks.filter((t) => t.status === col.id)
+                    return (
+                      <Droppable key={col.id} droppableId={col.id}>
+                        {(provided) => (
+                          <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col min-h-0">
+                            <TaskKanbanColumn columnId={col.id} title={col.label} count={colTasks.length}>
+                              {colTasks.map((task, idx) => (
+                                <div key={task.id} onClick={() => setSelectedTaskId(task.id)} className="cursor-pointer">
+                                  <TaskKanbanCard task={task} index={idx} />
+                                </div>
+                              ))}
+                              {provided.placeholder}
+                            </TaskKanbanColumn>
+                          </div>
+                        )}
+                      </Droppable>
+                    )
+                  })}
+                </div>
+              </DragDropContext>
             ) : (
               <CuiTaskList
                 sections={sections}
@@ -266,7 +322,6 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
           </div>
         </div>
 
-        {/* Detail panel */}
         <TaskDetailsPanel
           task={selectedTask}
           open={!!selectedTask}
@@ -274,27 +329,24 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
           onStatusChange={handleStatusChange}
           className="w-[420px] shrink-0 border-l border-border"
         />
-
-        {/* Assistant panel */}
-        <div className="w-[340px] shrink-0 border-l border-border">
-          <ModuleAssistantPanel
-            moduleId="tasks-manager"
-            moduleLabel="Tasks Manager"
-            agentLabel="Task Agent"
-            placeholder="Ask about your tasks..."
-          />
-        </div>
       </div>
 
-      {/* Create modals */}
+      <AssistantPanel
+        open={assistantOpen}
+        onOpenChange={setAssistantOpen}
+        title="Task Agent"
+        subtitle="Ask anything about your tasks"
+        messages={assistantMessages}
+        onSend={handleAssistantSend}
+        placeholder="Ask about your tasks..."
+      />
+
       {integration === 'internal' && (
-        <InternalTaskCreateModal
+        <InternalCreateWithSync
           open={createOpen}
           onOpenChange={setCreateOpen}
-          onCreate={(payload) => {
-            internal.create(payload)
-            addToast({ title: 'Task created', variant: 'success' })
-          }}
+          internal={internal}
+          addToast={addToast}
         />
       )}
       {integration === 'jira' && jira.config && (
@@ -310,6 +362,63 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
   )
 }
 
+/* ─── Sync-aware internal create ──────────────────────────────── */
+
+function InternalCreateWithSync({
+  open,
+  onOpenChange,
+  internal,
+  addToast,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  internal: ReturnType<typeof useInternalTasks>
+  addToast: ReturnType<typeof useToast>['addToast']
+}) {
+  const { config: jiraConfig } = useJiraConfig()
+  const hasIntegrations = !!jiraConfig
+
+  const handleCreate = async (payload: InternalTaskCreatePayload) => {
+    internal.create({
+      title: payload.title,
+      description: payload.description,
+      priority: payload.priority,
+      date: payload.date,
+      assignee: payload.assignee,
+    })
+    addToast({ title: 'Task created', variant: 'success' })
+
+    if (payload.syncWithIntegrations && jiraConfig) {
+      try {
+        const projects = await fetchJiraProjects(jiraConfig)
+        const projectKey = projects[0]?.key
+        if (projectKey) {
+          await createJiraIssue(jiraConfig, {
+            projectKey,
+            summary: payload.title,
+            description: payload.description,
+            priority: PRIORITY_TO_JIRA[payload.priority ?? 'medium'],
+            duedate: payload.date,
+            issuetype: 'Task',
+          })
+          addToast({ title: 'Synced to Jira', variant: 'success' })
+        }
+      } catch {
+        addToast({ title: 'Jira sync failed', variant: 'error' })
+      }
+    }
+  }
+
+  return (
+    <InternalTaskCreateModal
+      open={open}
+      onOpenChange={onOpenChange}
+      onCreate={handleCreate}
+      hasActiveIntegrations={hasIntegrations}
+    />
+  )
+}
+
 /* ─── Header ──────────────────────────────────────────────────── */
 
 interface HeaderProps {
@@ -320,6 +429,7 @@ interface HeaderProps {
   loading: boolean
   onRefresh: () => void
   onCreate: () => void
+  onToggleAssistant: () => void
   pendingCount: number
   urgentCount: number
 }
@@ -332,14 +442,15 @@ function Header({
   loading,
   onRefresh,
   onCreate,
+  onToggleAssistant,
   pendingCount,
   urgentCount,
 }: HeaderProps) {
   return (
     <header className="px-8 py-4 border-b border-border flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-citrus-green/10 flex items-center justify-center">
-          <CheckSquare className="w-4 h-4 text-citrus-green" />
+        <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+          <CheckSquare className="w-4 h-4 text-accent" />
         </div>
         <div>
           <h1 className="text-lg font-semibold tracking-tight text-foreground">Tasks</h1>
@@ -349,20 +460,20 @@ function Header({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <IntegrationSwitch value={integration} onChange={onIntegrationChange} />
 
         <div className="flex items-center rounded-lg border border-border overflow-hidden">
           <button
             onClick={() => onViewModeChange('list')}
-            className={`p-1.5 transition-colors ${viewMode === 'list' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
+            className={`p-2 transition-colors ${viewMode === 'list' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
             aria-label="List view"
           >
             <List className="w-4 h-4" />
           </button>
           <button
             onClick={() => onViewModeChange('kanban')}
-            className={`p-1.5 transition-colors ${viewMode === 'kanban' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
+            className={`p-2 transition-colors ${viewMode === 'kanban' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}`}
             aria-label="Kanban view"
           >
             <LayoutGrid className="w-4 h-4" />
@@ -379,9 +490,17 @@ function Header({
         </button>
 
         <button
+          onClick={onToggleAssistant}
+          aria-label="Toggle assistant"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-border text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-all duration-150 active:scale-95"
+        >
+          <Bot className="w-4 h-4" />
+        </button>
+
+        <button
           onClick={onCreate}
           aria-label="New task"
-          className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-citrus-green text-white hover:bg-citrus-green/90 transition-all duration-150 active:scale-95"
+          className="h-8 w-8 inline-flex items-center justify-center rounded-lg bg-accent text-accent-foreground hover:bg-accent/90 transition-all duration-150 active:scale-95"
         >
           <Plus className="w-4 h-4" />
         </button>

@@ -12,6 +12,8 @@ export interface InternalTask {
   labels: string[]
   createdAt: string
   updatedAt: string
+  syncedJiraKey?: string
+  pendingSlackSync?: boolean
 }
 
 export type InternalTaskCreate = Pick<InternalTask, 'title'> &
