@@ -1,0 +1,90 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
+  background-color: var(--inkblot-semantic-color-background-primary);
+  color: var(--inkblot-semantic-color-text-primary);
+  font-family: var(--inkblot-typography-font-family-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/**
+ * citron-ds ships light semantic tokens on :root only; citron-ui ThemeProvider toggles
+ * data-theme on <html>. Map semantic variables to the packaged dark palette so the UI
+ * actually switches (sun / light = bright surfaces, moon / dark = warm black surfaces).
+ */
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --inkblot-semantic-color-background-primary: var(--inkblot-dark-color-background-primary);
+  --inkblot-semantic-color-background-secondary: var(--inkblot-dark-color-background-secondary);
+  --inkblot-semantic-color-background-tertiary: var(--inkblot-dark-color-background-tertiary);
+  --inkblot-semantic-color-background-inverse: var(--inkblot-dark-color-background-inverse);
+  --inkblot-semantic-color-text-primary: var(--inkblot-dark-color-text-primary);
+  --inkblot-semantic-color-text-secondary: var(--inkblot-dark-color-text-secondary);
+  --inkblot-semantic-color-text-tertiary: var(--inkblot-dark-color-text-tertiary);
+  --inkblot-semantic-color-text-inverse: var(--inkblot-dark-color-text-inverse);
+  --inkblot-semantic-color-text-link: var(--inkblot-dark-color-text-link);
+  --inkblot-semantic-color-text-link-hover: var(--inkblot-dark-color-text-link-hover);
+  --inkblot-semantic-color-border-default: var(--inkblot-dark-color-border-default);
+  --inkblot-semantic-color-border-strong: var(--inkblot-dark-color-border-strong);
+  --inkblot-semantic-color-border-focus: var(--inkblot-dark-color-border-focus);
+  --inkblot-semantic-color-interactive-primary: var(--inkblot-dark-color-interactive-primary);
+  --inkblot-semantic-color-interactive-primary-hover: var(--inkblot-dark-color-interactive-primary-hover);
+  --inkblot-semantic-color-interactive-primary-active: var(--inkblot-dark-color-interactive-primary-active);
+  --inkblot-semantic-color-interactive-secondary: var(--inkblot-dark-color-interactive-secondary);
+  --inkblot-semantic-color-interactive-secondary-hover: var(--inkblot-dark-color-interactive-secondary-hover);
+  --inkblot-semantic-color-status-success: var(--inkblot-dark-color-status-success);
+  --inkblot-semantic-color-status-warning: var(--inkblot-dark-color-status-warning);
+  --inkblot-semantic-color-status-error: var(--inkblot-dark-color-status-error);
+  --inkblot-semantic-color-status-info: var(--inkblot-dark-color-status-info);
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+}
+
+@layer utilities {
+  .glass {
+    background: var(--inkblot-semantic-color-background-secondary);
+    border: 1px solid var(--inkblot-semantic-color-border-default);
+    box-shadow: var(--inkblot-shadow-sm);
+  }
+
+  .glass-hover:hover {
+    background: var(--inkblot-semantic-color-interactive-secondary-hover);
+  }
+
+  .surface-2 {
+    background-color: var(--inkblot-semantic-color-background-tertiary);
+  }
+
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 1.5s ease-in-out infinite;
+    background: linear-gradient(
+      90deg,
+      var(--inkblot-semantic-color-background-secondary) 25%,
+      var(--inkblot-semantic-color-background-tertiary) 50%,
+      var(--inkblot-semantic-color-background-secondary) 75%
+    );
+    background-size: 200% 100%;
+  }
+}

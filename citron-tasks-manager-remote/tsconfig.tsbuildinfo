@@ -1,0 +1,1 @@
+{"root":["./src/main.tsx","./src/vite-env.d.ts","./src/components/taskcreatemodal.tsx","./src/components/taskeditmodal.tsx","./src/exposes/tasksmanager.tsx","./src/lib/jiracontext.tsx","./src/lib/toastcontext.tsx","./src/lib/jira-api.ts","./src/lib/jira-types.ts","./src/pages/tasksmanagerpage.tsx"],"version":"5.9.3"}
