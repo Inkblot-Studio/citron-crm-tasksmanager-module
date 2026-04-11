@@ -1,0 +1,35 @@
+{
+  "name": "@citron-systems/citron-ui",
+  "version": "1.23.0",
+  "description": "Vendored build of @citron-systems/citron-ui for CI/Vercel (sync from Inkblot citron-ui-work).",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    }
+  },
+  "peerDependencies": {
+    "@citron-systems/citron-ds": "^1.0.0",
+    "framer-motion": "^11.0.0 || ^12.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-error-boundary": "^5.0.0",
+    "react-router-dom": "^7.0.0"
+  },
+  "dependencies": {
+    "@citron-systems/citron-ds": "^1.0.0",
+    "@hello-pangea/dnd": "^18.0.1",
+    "@radix-ui/react-select": "^2.2.5",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.575.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-error-boundary": "^5.0.0",
+    "tailwind-merge": "^3.5.0"
+  }
+}
