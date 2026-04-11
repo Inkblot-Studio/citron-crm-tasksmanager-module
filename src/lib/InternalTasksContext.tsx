@@ -4,15 +4,18 @@ import * as store from './internal-tasks-store'
 import type { InternalTask, InternalTaskCreate } from './internal-tasks-store'
 
 function toKanban(t: InternalTask): TaskWithStatus {
+  const iso = t.date && /^\d{4}-\d{2}-\d{2}/.test(t.date) ? t.date.slice(0, 10) : null
   return {
     id: t.id,
     title: t.title,
     company: t.company,
     priority: t.priority,
-    date: t.date ? new Date(t.date).toLocaleDateString() : '-',
+    date: t.date ? (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString() : new Date(t.date).toLocaleDateString()) : '-',
     assignee: t.assignee || 'Unassigned',
     completed: t.status === 'done',
     status: t.status,
+    description: t.description,
+    dueDateIso: iso,
   }
 }
 
@@ -71,12 +74,22 @@ export function InternalTasksProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const applyKanbanChange = useCallback((updated: TaskWithStatus[]) => {
+    const byId = new Map(raw.map((t) => [t.id, t]))
+    const next: typeof raw = []
     for (const kt of updated) {
-      const existing = raw.find((t) => t.id === kt.id)
-      if (existing && existing.status !== kt.status) {
-        store.update(kt.id, { status: kt.status })
-      }
+      const ex = byId.get(kt.id)
+      if (!ex) continue
+      const statusChanged = ex.status !== kt.status
+      next.push(
+        statusChanged
+          ? { ...ex, status: kt.status, updatedAt: new Date().toISOString() }
+          : ex
+      )
     }
+    for (const t of raw) {
+      if (!updated.some((u) => u.id === t.id)) next.push(t)
+    }
+    store.replaceAll(next)
     setRaw(store.loadAll())
   }, [raw])
 

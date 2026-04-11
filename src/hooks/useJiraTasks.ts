@@ -50,6 +50,9 @@ export function useJiraTasks() {
         completed: t.status === 'done',
         jiraKey: t.id,
         status: t.status,
+        description: t.description ?? '',
+        dueDateIso: t.due,
+        assigneeAccountId: t.assignee?.id,
       })),
     [tasks],
   )

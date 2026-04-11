@@ -4,7 +4,7 @@ export default {
   content: [
     './index.html',
     './src/**/*.{ts,tsx}',
-    './node_modules/@citron-systems/citron-ui/**/*.{js,mjs}',
+    './node_modules/@citron-systems/citron-ui/dist/**/*.{js,mjs}',
   ],
   darkMode: ['selector', '[data-theme="dark"]'],
   theme: {

@@ -75,3 +75,8 @@ export function remove(id: string): boolean {
   write(filtered)
   return true
 }
+
+/** Replaces persisted order and content (used after board drag-and-drop). */
+export function replaceAll(tasks: InternalTask[]) {
+  write(tasks)
+}
