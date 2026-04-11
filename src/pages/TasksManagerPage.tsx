@@ -20,7 +20,6 @@ import {
   DialogFooter,
   DialogClose,
   Input,
-  Textarea,
   Label,
 } from '@citron-systems/citron-ui'
 import type {
@@ -51,6 +50,7 @@ import { useInternalTasks } from '@/lib/InternalTasksContext'
 import { useJiraConfig } from '@/lib/JiraContext'
 import { createJiraIssue, fetchJiraProjects, getTransitions, transitionToStatus, fetchAssignableUsers } from '@/lib/jira-api'
 import { IntegrationSwitch, type Integration } from '@/components/IntegrationSwitch'
+import { AutoGrowTextarea } from '@/components/AutoGrowTextarea'
 import { InternalTaskCreateModal, type InternalTaskCreatePayload } from '@/components/InternalTaskCreateModal'
 import { TaskCreateModal } from '@/components/TaskCreateModal'
 
@@ -97,11 +97,19 @@ function mergeBoardAfterPartialUpdate(
 function matchesSearch(task: TaskWithStatus, q: string): boolean {
   if (!q.trim()) return true
   const s = q.toLowerCase()
+  const title = (task.title ?? '').toLowerCase()
+  const company = (task.company ?? '').toLowerCase()
+  const assignee = (task.assignee ?? '').toLowerCase()
+  const jira = task.jiraKey?.toLowerCase() ?? ''
+  const due = (task.dueDateIso ?? '').toLowerCase()
+  const dateLabel = (task.date ?? '').toLowerCase()
   return (
-    task.title.toLowerCase().includes(s) ||
-    task.company.toLowerCase().includes(s) ||
-    task.assignee.toLowerCase().includes(s) ||
-    (task.jiraKey?.toLowerCase().includes(s) ?? false)
+    title.includes(s) ||
+    company.includes(s) ||
+    assignee.includes(s) ||
+    jira.includes(s) ||
+    due.includes(s) ||
+    dateLabel.includes(s)
   )
 }
 
@@ -129,7 +137,7 @@ function ConnectIntegrationLayout({
   onOpenSettings: () => void
 }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 py-10">
+    <div className="flex flex-1 flex-col items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
       <IntegrationPlaceholder
         name={title}
         description={description}
@@ -145,51 +153,75 @@ function ConnectIntegrationLayout({
 
 function ListSkeleton() {
   return (
-    <div className="space-y-6">
-      {STATUS_COLUMNS.map((g) => (
-        <div key={g.id}>
-          <div className="mb-3 flex items-center gap-2">
-            <Skeleton className="h-3.5 w-3.5 rounded-full" />
-            <Skeleton className="h-3 w-20" />
-            <Skeleton className="h-4 w-6 rounded-full" />
-          </div>
-          <div className="space-y-2">
-            {[1, 2].map((j) => (
-              <div key={j} className="glass flex items-start gap-4 rounded-xl p-4">
-                <Skeleton className="mt-0.5 h-4 w-4 shrink-0 rounded-full" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                </div>
-                <Skeleton className="h-4 w-12 shrink-0 rounded-full" />
+    <div className="citron-task-kanban citron-task-list w-full min-w-0">
+      <div className="citron-task-list__inner flex min-w-0 flex-col gap-8">
+        {STATUS_COLUMNS.map((g) => (
+          <section key={g.id} className="min-w-0">
+            <div className="flex w-full min-w-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
+                <Skeleton className="h-3.5 w-32 sm:w-40" />
               </div>
-            ))}
-          </div>
-        </div>
-      ))}
+              <Skeleton className="h-6 w-8 shrink-0 rounded-full" />
+            </div>
+            <div className="flex flex-col gap-2.5">
+              {[1, 2].map((j) => (
+                <div
+                  key={j}
+                  className="flex min-w-0 items-center gap-3 rounded-[0.85rem] border border-border/50 bg-secondary/30 px-3 py-2.5 shadow-sm sm:gap-4 sm:px-4 sm:py-3"
+                >
+                  <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <Skeleton className="h-4 w-full max-w-[min(100%,28rem)]" />
+                    <Skeleton className="h-3 w-[min(100%,14rem)] max-w-[70%]" />
+                  </div>
+                  <div className="hidden shrink-0 flex-col items-end gap-2 sm:flex">
+                    <Skeleton className="h-5 w-16 rounded-md" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-3.5 w-14" />
+                      <Skeleton className="h-3.5 w-20" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
+      </div>
     </div>
   )
 }
 
 function KanbanSkeleton() {
   return (
-    <div className="flex min-h-[50vh] w-full min-w-0 gap-4">
-      {STATUS_COLUMNS.map((g) => (
-        <div key={g.id} className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="mb-3 flex items-center gap-2 px-1">
-            <Skeleton className="h-3.5 w-3.5 rounded-full" />
-            <Skeleton className="h-3 w-20" />
-          </div>
-          <div className="flex-1 space-y-2">
-            {[1, 2, 3].map((j) => (
-              <div key={j} className="glass space-y-2 rounded-xl p-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-3 w-2/3" />
+    <div className="citron-task-kanban w-full min-w-0">
+      <div className="citron-task-kanban__board flex min-h-[min(480px,calc(100dvh-12rem))] w-full min-w-0 flex-col gap-3 sm:gap-4 lg:min-h-[min(520px,calc(100dvh-11rem))] lg:flex-row lg:items-stretch lg:gap-5 lg:overflow-x-auto">
+        {STATUS_COLUMNS.map((g) => (
+          <div
+            key={g.id}
+            className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden lg:min-w-[min(100%,260px)]"
+          >
+            <header className="flex w-full min-w-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-2">
+                <Skeleton className="h-3.5 w-3.5 shrink-0 rounded-full" />
+                <Skeleton className="h-3 w-24 sm:w-28" />
               </div>
-            ))}
+              <Skeleton className="h-6 w-8 shrink-0 rounded-full" />
+            </header>
+            <div className="flex min-h-0 flex-1 flex-col gap-2.5">
+              {[1, 2, 3].map((j) => (
+                <div
+                  key={j}
+                  className="rounded-[0.85rem] border border-border/60 bg-secondary/40 p-3 shadow-sm sm:p-3.5"
+                >
+                  <Skeleton className="h-4 w-full max-w-[100%]" />
+                  <Skeleton className="mt-2 h-3 w-2/3 max-w-[100%]" />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }
@@ -353,12 +385,13 @@ function TaskDetailsDialog({
 
               <div className="space-y-2 border-b border-[var(--inkblot-semantic-color-border-default)] py-3">
                 <Label htmlFor="citron-task-edit-desc">Description</Label>
-                <Textarea
+                <AutoGrowTextarea
                   id="citron-task-edit-desc"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  rows={5}
-                  className="w-full"
+                  minRows={3}
+                  maxRows={16}
+                  className="w-full rounded-lg border border-[var(--inkblot-semantic-color-border-default)] bg-[var(--inkblot-semantic-color-background-secondary)] px-4 py-2.5 text-sm text-[var(--inkblot-semantic-color-text-primary)] placeholder:text-[var(--inkblot-semantic-color-text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--inkblot-semantic-color-border-focus)]"
                 />
               </div>
 
@@ -642,7 +675,17 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
     loading: activeLoading,
     refreshSpinning,
     onRefresh: handleRefresh,
-    onCreate: () => setCreateOpen(true),
+    onCreate: () => {
+      if (integration === 'slack') {
+        addToast({ title: 'Connect Slack in Settings to use tasks with this integration.', variant: 'warning' })
+        return
+      }
+      if (integration === 'jira' && (!jira.isConnected || !jira.config)) {
+        addToast({ title: 'Connect Jira in Settings to create issues from here.', variant: 'warning' })
+        return
+      }
+      setCreateOpen(true)
+    },
     filtersOpen,
     onFiltersOpenChange: setFiltersOpen,
     searchQuery,
@@ -659,6 +702,7 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
     onExport: exportFilteredJson,
     filteredCount: displayTasks.length,
     totalCount: baseTasks.length,
+    initialContentLoading: activeLoading && baseTasks.length === 0,
   }
 
   const jiraIcon = (
@@ -668,7 +712,7 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
   if (integration === 'jira' && (!jira.isConnected || !jira.config)) {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <Header {...headerProps} pendingCount={0} urgentCount={0} />
+        <Header {...headerProps} pendingCount={0} urgentCount={0} initialContentLoading={false} />
         <ConnectIntegrationLayout
           title="Jira"
           description="Connect Jira in Settings to load issues, move them across columns, and edit summaries and details from this module."
@@ -682,7 +726,7 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
   if (integration === 'slack') {
     return (
       <div className="flex h-full min-h-0 flex-col">
-        <Header {...headerProps} pendingCount={0} urgentCount={0} />
+        <Header {...headerProps} pendingCount={0} urgentCount={0} initialContentLoading={false} />
         <ConnectIntegrationLayout
           title="Slack"
           description="Connect Slack in Settings to sync tasks and notifications with the channels your team already uses."
@@ -701,8 +745,8 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
       <Header {...headerProps} pendingCount={pendingCount} urgentCount={urgentCount} />
 
       <div className="relative min-h-0 flex-1 overflow-hidden">
-        <div className="h-full overflow-y-auto hide-scrollbar px-6 py-6 sm:px-8">
-          <div className="mx-auto w-full max-w-[1600px]">
+        <div className="h-full min-h-0 overflow-y-auto overflow-x-auto hide-scrollbar px-4 py-4 sm:px-6 sm:py-5 md:px-8 md:py-6">
+          <div className="mx-auto w-full min-w-0 max-w-[1600px]">
             {activeLoading && baseTasks.length === 0 ? (
               viewMode === 'kanban' ? (
                 <KanbanSkeleton />
@@ -717,26 +761,31 @@ export default function TasksManagerPage({ settingsHref = '/settings', onOpenSet
                 </Button>
               </div>
             ) : viewMode === 'kanban' ? (
-              <TaskKanbanBoard
-                className="min-h-[min(520px,calc(100vh-200px))] w-full min-w-0"
-                tasks={displayTasks}
-                onTasksChange={applyBoardChange}
-                onTaskOpen={(id) => setSelectedTaskId(id)}
-              />
+              <div className="citron-task-kanban w-full min-w-0">
+                <TaskKanbanBoard
+                  className="citron-task-kanban__board min-h-[min(480px,calc(100dvh-12rem))] w-full min-w-0 gap-3 sm:gap-4 lg:min-h-[min(560px,calc(100dvh-10rem))] lg:gap-5 lg:overflow-x-auto"
+                  tasks={displayTasks}
+                  onTasksChange={applyBoardChange}
+                  onTaskOpen={(id) => setSelectedTaskId(id)}
+                />
+              </div>
             ) : (
-              <CuiTaskList
-                sections={sections}
-                statusDropdown
-                onTaskStatusChange={handleListTaskStatusChange}
-                onTaskToggle={(id) => {
-                  if (integration === 'internal')
-                    internal.moveStatus(
-                      id,
-                      internal.raw.find((t) => t.id === id)?.status === 'done' ? 'todo' : 'done',
-                    )
-                }}
-                onTaskClick={(id) => setSelectedTaskId(id)}
-              />
+              <div className="citron-task-kanban citron-task-list w-full min-w-0">
+                <CuiTaskList
+                  className="citron-task-list__inner min-w-0"
+                  sections={sections}
+                  statusDropdown
+                  onTaskStatusChange={handleListTaskStatusChange}
+                  onTaskToggle={(id) => {
+                    if (integration === 'internal')
+                      internal.moveStatus(
+                        id,
+                        internal.raw.find((t) => t.id === id)?.status === 'done' ? 'todo' : 'done',
+                      )
+                  }}
+                  onTaskClick={(id) => setSelectedTaskId(id)}
+                />
+              </div>
             )}
             {baseTasks.length === 0 && !activeLoading && !activeError && (
               <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -865,6 +914,8 @@ interface HeaderProps {
   totalCount: number
   pendingCount: number
   urgentCount: number
+  /** Skeleton en título/subtítulo mientras carga el primer lote de tareas (misma vista que list/kanban). */
+  initialContentLoading?: boolean
 }
 
 function Header({
@@ -891,6 +942,7 @@ function Header({
   totalCount,
   pendingCount,
   urgentCount,
+  initialContentLoading = false,
 }: HeaderProps) {
   const spinIcon = loading || refreshSpinning
   const filtersActive =
@@ -903,26 +955,37 @@ function Header({
   ]
 
   return (
-    <header className="flex shrink-0 items-center justify-between gap-4 border-b border-border px-8 py-4">
-      <div className="flex items-center gap-3">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10">
+    <header className="flex shrink-0 flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 md:px-6 md:py-4 lg:px-8">
+      <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10">
           <CheckSquare className="h-4 w-4 text-accent" />
         </div>
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight text-foreground">Tasks</h1>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">
-            {pendingCount} pending · {urgentCount} urgent
-            {integration === 'internal' || integration === 'jira' ? (
-              <>
-                {' '}
-                · {filteredCount}/{totalCount} shown
-              </>
-            ) : null}
-          </p>
+        <div className="min-w-0">
+          {initialContentLoading ? (
+            <div className="space-y-2 pt-0.5" aria-busy="true" aria-label="Loading summary">
+              <Skeleton className="h-5 w-[7.5rem] sm:h-6 sm:w-32" />
+              <Skeleton className="h-2.5 w-[min(100%,12rem)] max-w-full" />
+            </div>
+          ) : (
+            <>
+              <h1 className="truncate text-base font-semibold tracking-tight text-foreground sm:text-lg">
+                Tasks
+              </h1>
+              <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+                {pendingCount} pending · {urgentCount} urgent
+                {integration === 'internal' || integration === 'jira' ? (
+                  <>
+                    {' '}
+                    · {filteredCount}/{totalCount} shown
+                  </>
+                ) : null}
+              </p>
+            </>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
         <IntegrationSwitch value={integration} onChange={onIntegrationChange} />
 
         <div className="flex items-center overflow-hidden rounded-lg border border-border">
@@ -973,12 +1036,22 @@ function Header({
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full"
             />
-            <Select
-              aria-label="Sort by"
-              value={sortKey}
-              onChange={(e) => onSortChange(e.target.value as SortKey)}
-              options={sortOptions}
-            />
+            {/* Native select: citron-ui Popover closes on outside pointerdown; Radix Select portals count as outside. */}
+            <label className="block space-y-1.5">
+              <span className="text-xs text-muted-foreground">Sort by</span>
+              <select
+                aria-label="Sort by"
+                value={sortKey}
+                onChange={(e) => onSortChange(e.target.value as SortKey)}
+                className="flex h-10 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {sortOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <label className="flex items-center justify-between gap-3 text-sm text-foreground">
               <span>Hide completed</span>
               <Switch

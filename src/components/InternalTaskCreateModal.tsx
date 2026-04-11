@@ -2,6 +2,7 @@ import { Button, Input, Label, Select, Switch } from '@citron-systems/citron-ui'
 import * as Dialog from '@radix-ui/react-dialog'
 import { useState } from 'react'
 import type { TaskPriority } from '@citron-systems/citron-ui'
+import { AutoGrowTextarea } from '@/components/AutoGrowTextarea'
 
 const priorityOptions = [
   { value: 'urgent', label: 'Urgent' },
@@ -70,12 +71,13 @@ export function InternalTaskCreateModal({ open, onOpenChange, onCreate, hasActiv
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px]">Description</Label>
-              <textarea
+              <AutoGrowTextarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Description..."
-                rows={3}
-                className="w-full bg-surface-1 border border-border rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                minRows={2}
+                maxRows={12}
+                className="w-full bg-surface-1 border border-border rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div className="flex gap-4">
@@ -100,10 +102,10 @@ export function InternalTaskCreateModal({ open, onOpenChange, onCreate, hasActiv
             )}
           </div>
           <div className="flex gap-2 mt-6 pt-4 border-t border-border">
-            <Button variant="secondary" onClick={() => onOpenChange(false)} className="flex-1 text-xs">
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} className="flex-1 text-xs">
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={!title.trim()} className="flex-1 text-xs">
+            <Button type="button" onClick={handleCreate} disabled={!title.trim()} className="flex-1 text-xs">
               Create
             </Button>
           </div>

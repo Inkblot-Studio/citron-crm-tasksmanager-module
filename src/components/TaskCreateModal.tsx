@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { useState, useEffect } from 'react'
 import type { JiraConfig } from '@/lib/jira-types'
 import { fetchJiraProjects, fetchAssignableUsers, createJiraIssue } from '@/lib/jira-api'
+import { AutoGrowTextarea } from '@/components/AutoGrowTextarea'
 
 const priorityOptions = [
   { value: 'Highest', label: 'Urgent' },
@@ -124,12 +125,13 @@ export function TaskCreateModal({ config, open, onOpenChange, onCreated, onError
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px]">Description</Label>
-              <textarea
+              <AutoGrowTextarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Description..."
-                rows={4}
-                className="w-full bg-surface-1 border border-border rounded-lg px-4 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-ring resize-none"
+                minRows={2}
+                maxRows={14}
+                className="w-full bg-surface-1 border border-border rounded-lg px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div className="flex gap-4">
@@ -149,10 +151,10 @@ export function TaskCreateModal({ config, open, onOpenChange, onCreated, onError
             </div>
           </div>
           <div className="flex gap-2 mt-6 pt-4 border-t border-border">
-            <Button variant="secondary" onClick={() => onOpenChange(false)} className="flex-1 text-xs">
+            <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} className="flex-1 text-xs">
               Cancel
             </Button>
-            <Button onClick={handleCreate} disabled={creating || !title.trim()} className="flex-1 text-xs">
+            <Button type="button" onClick={handleCreate} disabled={creating || !title.trim()} className="flex-1 text-xs">
               {creating ? 'Creating...' : 'Create'}
             </Button>
           </div>

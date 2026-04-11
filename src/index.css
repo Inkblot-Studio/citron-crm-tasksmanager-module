@@ -88,3 +88,335 @@ html[data-theme='light'] {
     background-size: 200% 100%;
   }
 }
+
+/**
+ * Kanban / lista: contenedor neutro (sin marco ni cuadrícula de fondo).
+ * Estructura: .citron-task-kanban > .citron-task-kanban__board | .citron-task-list__inner
+ */
+.citron-task-kanban {
+  width: 100%;
+  min-width: 0;
+}
+
+.citron-task-kanban__board {
+  position: relative;
+  z-index: 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+/* Columnas: acentos por fase (orden fijo en citron-ui: todo, in_progress, done) */
+.citron-task-kanban__board > div:nth-child(1) {
+  --kanban-accent: var(--inkblot-semantic-color-status-info);
+  --kanban-accent-soft: color-mix(in srgb, var(--inkblot-semantic-color-status-info) 18%, transparent);
+}
+
+.citron-task-kanban__board > div:nth-child(2) {
+  --kanban-accent: var(--inkblot-color-accent-citron-400, var(--inkblot-semantic-color-status-warning));
+  --kanban-accent-soft: color-mix(
+    in srgb,
+    var(--inkblot-color-accent-citron-400, var(--inkblot-semantic-color-status-warning)) 20%,
+    transparent
+  );
+}
+
+.citron-task-kanban__board > div:nth-child(3) {
+  --kanban-accent: var(--inkblot-semantic-color-status-success);
+  --kanban-accent-soft: color-mix(in srgb, var(--inkblot-semantic-color-status-success) 16%, transparent);
+}
+
+.citron-task-kanban__board > div {
+  position: relative;
+  overflow: hidden;
+  min-height: min(24rem, 56dvh);
+  border-radius: 1rem !important;
+  border: 1px solid color-mix(in srgb, var(--inkblot-semantic-color-border-default) 55%, transparent) !important;
+  border-left: 3px solid var(--kanban-accent) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 4%, transparent),
+    0 18px 40px -22px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 5%, transparent);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--inkblot-semantic-color-background-secondary) 92%, var(--kanban-accent)) 0%,
+    var(--inkblot-semantic-color-background-tertiary) 48%,
+    color-mix(in srgb, var(--inkblot-semantic-color-background-primary) 35%, var(--inkblot-semantic-color-background-tertiary)) 100%
+  ) !important;
+}
+
+.citron-task-kanban__board > div::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    120% 80% at 0% 0%,
+    var(--kanban-accent-soft),
+    transparent 55%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.citron-task-kanban__board > div > header,
+.citron-task-kanban__board > div > div:nth-child(2) {
+  position: relative;
+  z-index: 1;
+}
+
+.citron-task-kanban__board > div > header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 0.65rem !important;
+  padding: 0.85rem 1rem !important;
+  border-bottom: 1px solid color-mix(in srgb, var(--inkblot-semantic-color-border-default) 50%, transparent) !important;
+  background: color-mix(in srgb, var(--inkblot-semantic-color-background-secondary) 78%, transparent) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.citron-task-kanban__board > div > header h2 {
+  font-size: 0.6875rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.14em !important;
+  text-transform: uppercase !important;
+  color: color-mix(in srgb, var(--kanban-accent) 55%, var(--inkblot-semantic-color-text-secondary)) !important;
+}
+
+.citron-task-kanban__board > div > header span:last-child {
+  min-width: 1.75rem !important;
+  padding: 0.2rem 0.55rem !important;
+  border-radius: 9999px !important;
+  font-size: 0.6875rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  background: color-mix(in srgb, var(--kanban-accent) 22%, var(--inkblot-semantic-color-background-primary)) !important;
+  color: var(--inkblot-semantic-color-text-primary) !important;
+  border: 1px solid color-mix(in srgb, var(--kanban-accent) 35%, transparent) !important;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 8%, transparent);
+}
+
+/* Cuerpo / drop zone */
+.citron-task-kanban__board > div > div:nth-child(2) {
+  min-height: min(16rem, 42dvh) !important;
+  padding: 0.65rem 0.7rem 0.85rem !important;
+  margin: 0 0.35rem 0.35rem !important;
+  border-radius: 0.65rem !important;
+  background: color-mix(in srgb, var(--inkblot-semantic-color-background-primary) 52%, transparent) !important;
+  border: 1px dashed color-mix(in srgb, var(--inkblot-semantic-color-border-default) 45%, transparent) !important;
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 4%, transparent);
+  gap: 0.65rem !important;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--kanban-accent) 40%, transparent) transparent;
+}
+
+.citron-task-kanban__board > div > div:nth-child(2)::-webkit-scrollbar {
+  width: 6px;
+}
+
+.citron-task-kanban__board > div > div:nth-child(2)::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--kanban-accent) 45%, var(--inkblot-semantic-color-border-default));
+}
+
+/* Tarjetas */
+.citron-task-kanban__board [role='button'][tabindex='0'] {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.85rem !important;
+  border: 1px solid color-mix(in srgb, var(--inkblot-semantic-color-border-default) 65%, transparent) !important;
+  background: linear-gradient(
+    145deg,
+    var(--inkblot-semantic-color-background-secondary) 0%,
+    color-mix(in srgb, var(--inkblot-semantic-color-background-secondary) 88%, var(--inkblot-semantic-color-background-primary)) 100%
+  ) !important;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 5%, transparent),
+    0 6px 16px -8px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 22%, transparent) !important;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.citron-task-kanban__board [role='button'][tabindex='0'] > p:first-of-type {
+  font-size: 0.9375rem !important;
+  line-height: 1.35 !important;
+  letter-spacing: -0.018em !important;
+  font-weight: 600 !important;
+}
+
+.citron-task-kanban__board [role='button'][tabindex='0'] > p:nth-of-type(2) {
+  font-size: 0.75rem !important;
+  opacity: 0.92;
+}
+
+/* Franja de prioridad (citron: absolute derecha) */
+.citron-task-kanban__board [role='button'][tabindex='0'] > div.absolute {
+  width: 0.28rem !important;
+  border-radius: 9999px !important;
+  opacity: 0.95;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 8%, transparent);
+}
+
+@media (hover: hover) {
+  .citron-task-kanban__board [role='button'][tabindex='0']:hover {
+    border-color: color-mix(in srgb, var(--kanban-accent) 45%, var(--inkblot-semantic-color-border-strong)) !important;
+    box-shadow:
+      0 1px 0 color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 6%, transparent),
+      0 12px 28px -10px color-mix(in srgb, var(--kanban-accent) 35%, transparent),
+      0 8px 20px -12px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 18%, transparent) !important;
+    transform: translateY(-2px);
+  }
+}
+
+.citron-task-kanban__board [role='button'][tabindex='0']:active {
+  transform: translateY(0);
+}
+
+/**
+ * Lista (citron-ui TaskList) — mismos acentos que Kanban por sección: todo (info), in progress (citron), done (verde).
+ * Estructura: .citron-task-kanban.citron-task-list > .citron-task-list__inner > section > div (cabecera) + div (filas).
+ */
+.citron-task-list__inner > section:nth-child(1) {
+  --list-accent: var(--inkblot-semantic-color-status-info);
+  --list-accent-soft: color-mix(in srgb, var(--inkblot-semantic-color-status-info) 18%, transparent);
+}
+
+.citron-task-list__inner > section:nth-child(2) {
+  --list-accent: var(--inkblot-color-accent-citron-400, var(--inkblot-semantic-color-status-warning));
+  --list-accent-soft: color-mix(
+    in srgb,
+    var(--inkblot-color-accent-citron-400, var(--inkblot-semantic-color-status-warning)) 20%,
+    transparent
+  );
+}
+
+.citron-task-list__inner > section:nth-child(3) {
+  --list-accent: var(--inkblot-semantic-color-status-success);
+  --list-accent-soft: color-mix(in srgb, var(--inkblot-semantic-color-status-success) 16%, transparent);
+}
+
+.citron-task-list__inner > section {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--inkblot-semantic-color-border-default) 55%, transparent);
+  border-left: 3px solid var(--list-accent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 4%, transparent),
+    0 14px 36px -20px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 24%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 5%, transparent);
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--inkblot-semantic-color-background-secondary) 92%, var(--list-accent)) 0%,
+    var(--inkblot-semantic-color-background-tertiary) 48%,
+    color-mix(in srgb, var(--inkblot-semantic-color-background-primary) 35%, var(--inkblot-semantic-color-background-tertiary)) 100%
+  );
+}
+
+.citron-task-list__inner > section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 70% at 0% 0%, var(--list-accent-soft), transparent 55%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.citron-task-list__inner > section > div:first-of-type {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--inkblot-semantic-color-border-default) 50%, transparent);
+  background: color-mix(in srgb, var(--inkblot-semantic-color-background-secondary) 78%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.citron-task-list__inner > section > div:first-of-type svg {
+  color: color-mix(in srgb, var(--list-accent) 70%, var(--inkblot-semantic-color-text-secondary));
+}
+
+.citron-task-list__inner > section > div:first-of-type h2 {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--list-accent) 55%, var(--inkblot-semantic-color-text-secondary));
+}
+
+.citron-task-list__inner > section > div:first-of-type > span:last-child {
+  min-width: 1.75rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  background: color-mix(in srgb, var(--list-accent) 22%, var(--inkblot-semantic-color-background-primary));
+  color: var(--inkblot-semantic-color-text-primary);
+  border: 1px solid color-mix(in srgb, var(--list-accent) 35%, transparent);
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 8%, transparent);
+}
+
+.citron-task-list__inner > section > div:nth-child(2) {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  min-height: 4.5rem;
+  margin: 0 0.35rem 0.35rem;
+  padding: 0.65rem 0.7rem 0.85rem;
+  border-radius: 0.65rem;
+  border: 1px dashed color-mix(in srgb, var(--inkblot-semantic-color-border-default) 45%, transparent);
+  background: color-mix(in srgb, var(--inkblot-semantic-color-background-primary) 52%, transparent);
+  box-shadow: inset 0 1px 2px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 4%, transparent);
+}
+
+.citron-task-list__inner section [role='button'][tabindex='0'] {
+  position: relative;
+  border-radius: 0.85rem !important;
+  border: 1px solid color-mix(in srgb, var(--inkblot-semantic-color-border-default) 65%, transparent) !important;
+  border-left: 3px solid var(--list-accent) !important;
+  background: linear-gradient(
+    145deg,
+    var(--inkblot-semantic-color-background-secondary) 0%,
+    color-mix(in srgb, var(--inkblot-semantic-color-background-secondary) 88%, var(--inkblot-semantic-color-background-primary)) 100%
+  ) !important;
+  box-shadow:
+    0 1px 0 color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 5%, transparent),
+    0 5px 14px -8px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 20%, transparent) !important;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.citron-task-list__inner > section:nth-child(3) [role='button'][tabindex='0'] {
+  background: linear-gradient(
+    145deg,
+    color-mix(in srgb, var(--inkblot-semantic-color-background-secondary) 92%, var(--list-accent)) 0%,
+    color-mix(in srgb, var(--inkblot-semantic-color-background-secondary) 85%, var(--inkblot-semantic-color-background-primary)) 100%
+  ) !important;
+}
+
+@media (hover: hover) {
+  .citron-task-list__inner section [role='button'][tabindex='0']:hover {
+    border-color: color-mix(in srgb, var(--list-accent) 45%, var(--inkblot-semantic-color-border-strong)) !important;
+    box-shadow:
+      0 1px 0 color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 6%, transparent),
+      0 10px 24px -8px color-mix(in srgb, var(--list-accent) 30%, transparent),
+      0 6px 18px -10px color-mix(in srgb, var(--inkblot-semantic-color-text-primary) 16%, transparent) !important;
+    transform: translateY(-1px);
+  }
+}
+
+.citron-task-list__inner section [role='button'][tabindex='0']:active {
+  transform: translateY(0);
+}

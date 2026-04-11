@@ -3,7 +3,7 @@ import { CheckSquare, Cloudy, MessageSquare } from 'lucide-react'
 export type Integration = 'internal' | 'jira' | 'slack'
 
 const items: { key: Integration; label: string; icon: typeof CheckSquare }[] = [
-  { key: 'internal', label: 'Internal', icon: CheckSquare },
+  { key: 'internal', label: 'Internal tasks', icon: CheckSquare },
   { key: 'jira', label: 'Jira', icon: Cloudy },
   { key: 'slack', label: 'Slack', icon: MessageSquare },
 ]
@@ -19,15 +19,17 @@ export function IntegrationSwitch({ value, onChange }: IntegrationSwitchProps) {
       {items.map(({ key, label, icon: Icon }) => (
         <button
           key={key}
+          type="button"
+          aria-label={label}
+          title={label}
           onClick={() => onChange(key)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-medium transition-all duration-150 ${
+          className={`inline-flex h-8 w-8 items-center justify-center transition-all duration-150 ${
             value === key
               ? 'bg-secondary text-foreground'
               : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
           }`}
         >
-          <Icon className="w-3.5 h-3.5" />
-          {label}
+          <Icon className="h-4 w-4 shrink-0" aria-hidden />
         </button>
       ))}
     </div>
