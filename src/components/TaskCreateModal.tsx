@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import type { JiraConfig } from '@/lib/jira-types'
 import { fetchJiraProjects, fetchAssignableUsers, createJiraIssue } from '@/lib/jira-api'
 import { AutoGrowTextarea } from '@/components/AutoGrowTextarea'
+import { ASSIGNEE_SELECT_SENTINEL } from '@/lib/select-sentinel'
 
 const priorityOptions = [
   { value: 'Highest', label: 'Urgent' },
@@ -90,7 +91,7 @@ export function TaskCreateModal({ config, open, onOpenChange, onCreated, onError
 
   const projectOptions = projects.map((p) => ({ value: p.key, label: `${p.name} (${p.key})` }))
   const assigneeOptions = [
-    { value: '', label: 'Unassigned' },
+    { value: ASSIGNEE_SELECT_SENTINEL, label: 'Unassigned' },
     ...assignees.map((u) => ({ value: u.id, label: u.displayName })),
   ]
 
@@ -114,8 +115,11 @@ export function TaskCreateModal({ config, open, onOpenChange, onCreated, onError
               <Label className="text-[10px]">Assignee</Label>
               <Select
                 options={assigneeOptions}
-                value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
+                value={assigneeId || ASSIGNEE_SELECT_SENTINEL}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setAssigneeId(v === ASSIGNEE_SELECT_SENTINEL ? '' : v)
+                }}
                 disabled={loadingUsers}
               />
             </div>

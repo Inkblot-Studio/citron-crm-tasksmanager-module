@@ -49,6 +49,7 @@ import { useJiraTasks } from '@/hooks/useJiraTasks'
 import { useInternalTasks } from '@/lib/InternalTasksContext'
 import { useJiraConfig } from '@/lib/JiraContext'
 import { createJiraIssue, fetchJiraProjects, getTransitions, transitionToStatus, fetchAssignableUsers } from '@/lib/jira-api'
+import { ASSIGNEE_SELECT_SENTINEL } from '@/lib/select-sentinel'
 import { IntegrationSwitch, type Integration } from '@/components/IntegrationSwitch'
 import { AutoGrowTextarea } from '@/components/AutoGrowTextarea'
 import { InternalTaskCreateModal, type InternalTaskCreatePayload } from '@/components/InternalTaskCreateModal'
@@ -420,14 +421,19 @@ function TaskDetailsDialog({
                   <Label htmlFor="citron-task-edit-assignee-sel">Assignee</Label>
                   <Select
                     id="citron-task-edit-assignee-sel"
-                    value={assigneeAccountId ?? ''}
+                    value={assigneeAccountId ?? ASSIGNEE_SELECT_SENTINEL}
                     onChange={(e) => {
                       const v = e.target.value
-                      setAssigneeAccountId(v || null)
+                      if (v === ASSIGNEE_SELECT_SENTINEL) {
+                        setAssigneeAccountId(null)
+                        setAssigneeText('Unassigned')
+                        return
+                      }
+                      setAssigneeAccountId(v)
                       const opt = assigneeOptions.find((o) => o.value === v)
                       if (opt) setAssigneeText(opt.label)
                     }}
-                    options={[{ value: '', label: 'Unassigned' }, ...assigneeOptions]}
+                    options={[{ value: ASSIGNEE_SELECT_SENTINEL, label: 'Unassigned' }, ...assigneeOptions]}
                   />
                 </div>
               ) : (
